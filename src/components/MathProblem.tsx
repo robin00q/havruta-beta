@@ -121,6 +121,15 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
     await provideFeedback();
   };
 
+  // 음성 입력이 완료되면 자동으로 정답을 체크합니다
+  const handleVoiceResult = (result: string) => {
+    setUserAnswer(result);
+    // 음성 입력이 완료되면 바로 정답 체크
+    setTimeout(() => {
+      checkAnswer();
+    }, 500); // 음성 결과가 state에 반영될 시간을 조금 주기 위해 약간의 딜레이를 줍니다
+  };
+
   useEffect(() => {
     generateProblem();
   }, [category]);
@@ -142,29 +151,16 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
                 답:
               </label>
               <div className="flex gap-2 items-start">
-                <input
-                  type="text"
-                  id="answer"
-                  value={userAnswer}
-                  onChange={(e) => setUserAnswer(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="답을 입력하세요"
-                />
+                <div className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                  {userAnswer || '답을 말씀해주세요'}
+                </div>
                 <VoiceInput
-                  onResult={setUserAnswer}
+                  onResult={handleVoiceResult}
                   placeholder="답 말하기"
                   isListening={isAnswerListening}
                   setIsListening={setIsAnswerListening}
                 />
               </div>
-              {!showReasoning && (
-                <button
-                  onClick={checkAnswer}
-                  className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors w-full"
-                >
-                  정답 확인
-                </button>
-              )}
             </div>
             {showReasoning && (
               <div className="mb-6">
