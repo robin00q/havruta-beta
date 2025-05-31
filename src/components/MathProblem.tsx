@@ -5,6 +5,7 @@ import { OpenAI } from 'openai';
 import confetti from 'confetti-js';
 import { MathCategory } from '@/types/mathTypes';
 import CategorySelector from './CategorySelector';
+import VoiceInput from './VoiceInput';
 
 interface MathProblemProps {
   onCorrectAnswer: () => void;
@@ -21,6 +22,8 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
   const [feedback, setFeedback] = useState('');
   const [showReasoning, setShowReasoning] = useState(false);
   const [category, setCategory] = useState<MathCategory>('addition_subtraction');
+  const [isAnswerListening, setIsAnswerListening] = useState(false);
+  const [isReasoningListening, setIsReasoningListening] = useState(false);
 
   console.log('API Key:', process.env.NEXT_PUBLIC_OPENAI_API_KEY);
   console.log('API Key length:', process.env.NEXT_PUBLIC_OPENAI_API_KEY?.length);
@@ -144,14 +147,22 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
               <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-2">
                 답:
               </label>
-              <input
-                type="text"
-                id="answer"
-                value={userAnswer}
-                onChange={(e) => setUserAnswer(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="답을 입력하세요"
-              />
+              <div className="flex gap-2 items-start">
+                <input
+                  type="text"
+                  id="answer"
+                  value={userAnswer}
+                  onChange={(e) => setUserAnswer(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="답을 입력하세요"
+                />
+                <VoiceInput
+                  onResult={setUserAnswer}
+                  placeholder="답 말하기"
+                  isListening={isAnswerListening}
+                  setIsListening={setIsAnswerListening}
+                />
+              </div>
               {!showReasoning && (
                 <button
                   onClick={checkAnswer}
@@ -166,13 +177,21 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
                 <label htmlFor="reasoning" className="block text-sm font-medium text-gray-700 mb-2">
                   어떻게 풀었는지 설명해주세요:
                 </label>
-                <textarea
-                  id="reasoning"
-                  value={userReasoning}
-                  onChange={(e) => setUserReasoning(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
-                  placeholder="풀이 과정을 설명해주세요"
-                />
+                <div className="flex gap-2 items-start">
+                  <textarea
+                    id="reasoning"
+                    value={userReasoning}
+                    onChange={(e) => setUserReasoning(e.target.value)}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
+                    placeholder="풀이 과정을 설명해주세요"
+                  />
+                  <VoiceInput
+                    onResult={setUserReasoning}
+                    placeholder="설명 말하기"
+                    isListening={isReasoningListening}
+                    setIsListening={setIsReasoningListening}
+                  />
+                </div>
                 <div className="flex gap-2 mt-2">
                   <button
                     onClick={handleReasoningSubmit}
