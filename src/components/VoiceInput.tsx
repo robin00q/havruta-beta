@@ -48,8 +48,8 @@ export default function VoiceInput({ onResult, placeholder, isListening, setIsLi
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        recognition.continuous = true;
+        recognition.interimResults = true;
         recognition.lang = 'ko-KR';
 
         recognition.onstart = () => {
@@ -60,10 +60,16 @@ export default function VoiceInput({ onResult, placeholder, isListening, setIsLi
         };
 
         recognition.onresult = (event: any) => {
-          const result = event.results[0][0].transcript;
-          console.log('Voice recognition result:', result);
-          onResult(result);
-          stopRecognition();
+          const lastResult = event.results[event.results.length - 1];
+          const text = lastResult[0].transcript;
+          
+          if (lastResult.isFinal) {
+            console.log('Voice recognition final result:', text);
+            onResult(text);
+            stopRecognition();
+          } else {
+            console.log('Voice recognition interim result:', text);
+          }
         };
 
         recognition.onend = () => {
