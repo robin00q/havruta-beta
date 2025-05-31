@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { OpenAI } from 'openai';
 import { MathCategory } from '@/types/mathTypes';
 import CategorySelector from './CategorySelector';
@@ -23,16 +23,19 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
   const [category, setCategory] = useState<MathCategory>('addition_subtraction');
   const [isAnswerListening, setIsAnswerListening] = useState(false);
   const [isReasoningListening, setIsReasoningListening] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
 
-  console.log('API Key:', process.env.NEXT_PUBLIC_OPENAI_API_KEY);
-  console.log('API Key length:', process.env.NEXT_PUBLIC_OPENAI_API_KEY?.length);
-
-  const openai = new OpenAI({
+  // OpenAI 인스턴스를 ref로 관리
+  const openaiRef = useRef(new OpenAI({
     apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
     dangerouslyAllowBrowser: true
-  });
+  }));
 
-  const getCategoryPrompt = (category: MathCategory) => {
+  // 초기 마운트 추적을 위한 ref
+  const initialMountRef = useRef(true);
+  const generatingRef = useRef(false);
+
+  const getCategoryPrompt = useCallback((category: MathCategory) => {
     switch (category) {
       case 'addition_subtraction':
         return "유치원이나 초등학교 1학년 수준의 덧셈, 뺄셈 문제를 생성해주세요. 두 자리 수까지만 사용하고, 받아올림이나 받아내림은 최소화해주세요.";
@@ -41,17 +44,23 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
       default:
         return "초등학교 수준의 수학 문제를 생성해주세요.";
     }
-  };
+  }, []);
 
-  const generateProblem = async () => {
+  const generateProblem = useCallback(async () => {
+    // 이미 생성 중이면 중복 생성 방지
+    if (generatingRef.current) return;
+    
+    generatingRef.current = true;
     setLoading(true);
     setMessage('');
     setFeedback('');
     setShowReasoning(false);
     setUserAnswer('');
     setUserReasoning('');
+    
+    console.log('=== 새로운 문제 생성 시작 ===');
     try {
-      const response = await openai.chat.completions.create({
+      const response = await openaiRef.current.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [{
           role: "system",
@@ -60,57 +69,147 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
       });
 
       const result = JSON.parse(response.choices[0].message.content || '');
+      console.log('GPT가 생성한 문제:', result);
+      
       setProblem(result.problem);
       setAnswer(result.answer);
+      
+      console.log('문제 상태 업데이트 완료:', {
+        problem: result.problem,
+        answer: result.answer,
+        category
+      });
+      console.log('=== 새로운 문제 생성 완료 ===');
     } catch (error) {
       console.error('Error generating problem:', error);
       setMessage('문제 생성 중 오류가 발생했습니다.');
+    } finally {
+      setLoading(false);
+      generatingRef.current = false;
     }
-    setLoading(false);
-  };
+  }, [category, getCategoryPrompt]);
 
-  const provideFeedback = async () => {
-    setFeedbackLoading(true);
+  // 카테고리가 변경될 때만 새로운 문제 생성
+  useEffect(() => {
+    // 초기 마운트 시에만 실행
+    if (initialMountRef.current) {
+      initialMountRef.current = false;
+      generateProblem();
+    } else if (!generatingRef.current) {
+      // 카테고리 변경 시에만 실행 (초기 마운트가 아닐 때)
+      generateProblem();
+    }
+  }, [category, generateProblem]);
+
+  const checkAnswer = useCallback(async (currentAnswer: string) => {
+    if (isChecking || !currentAnswer) return;
+
+    setIsChecking(true);
     try {
-      const response = await openai.chat.completions.create({
+      console.log('=== 답변 체크 시작 ===');
+      const currentState = {
+        problem,
+        userAnswer: currentAnswer,
+        category
+      };
+      console.log('현재 문제 상태:', currentState);
+
+      const response = await openaiRef.current.chat.completions.create({
         model: "gpt-3.5-turbo",
         messages: [
           {
             role: "system",
-            content: "당신은 친절한 초등학교 수학 선생님입니다. 학생의 답과 풀이 과정을 분석하고, 격려하면서도 이해하기 쉽게 설명해주세요."
+            content: `당신은 초등학교 수학 선생님입니다. 
+1. 주어진 문제를 풀어보세요.
+2. 학생의 답변이 맞는지 판단해주세요.
+3. 답변 형식:
+   - 정답인 경우: "CORRECT: (칭찬과 함께 풀이 과정 설명)"
+   - 오답인 경우: "INCORRECT: (격려와 함께 올바른 풀이 방법 설명)"`
           },
           {
             role: "user",
-            content: `
-문제: ${problem}
-정답: ${answer}
-학생의 답: ${userAnswer}
-학생의 풀이 과정: ${userReasoning}
+            content: `문제: ${currentState.problem}
+학생의 답변: ${currentState.userAnswer}
 
-학생의 답이 틀렸습니다. 어떤 부분에서 실수를 했는지, 어떻게 생각하면 좋을지 친절하게 설명해주세요.`
+이 답변이 정답인가요? 
+학생이 "삼십육입니다"와 같이 한글로 답했거나, "36입니다"처럼 문장 형식으로 답했더라도 숫자만 추출해서 정답 여부를 판단해주세요.`
           }
         ],
       });
 
-      setFeedback(response.choices[0].message.content || '');
+      const result = response.choices[0].message.content || '';
+      console.log('GPT 응답:', result);
+      console.log('=== 답변 체크 완료 ===');
+      
+      if (result.startsWith('CORRECT')) {
+        setMessage('정답입니다! 🎉');
+        onCorrectAnswer();
+        setTimeout(generateProblem, 2000);
+      } else {
+        setMessage('틀렸습니다. 어떻게 풀었는지 설명해주세요!');
+        setShowReasoning(true);
+      }
+    } catch (error) {
+      console.error('Error checking answer:', error);
+      setMessage('답변 확인 중 오류가 발생했습니다.');
+    } finally {
+      setIsChecking(false);
+    }
+  }, [category, generateProblem, isChecking, onCorrectAnswer, problem]);
+
+  const handleVoiceResult = useCallback((result: string) => {
+    setUserAnswer(result);
+    console.log('음성 인식 결과 처리:', {
+      recognizedAnswer: result,
+      currentProblem: problem,
+      currentCategory: category
+    });
+    checkAnswer(result);
+  }, [category, checkAnswer, problem]);
+
+  const provideFeedback = async () => {
+    setFeedbackLoading(true);
+    try {
+      console.log('=== 피드백 생성 시작 ===');
+      console.log('문제:', problem);
+      console.log('학생 답변:', userAnswer);
+      console.log('학생 풀이 과정:', userReasoning);
+
+      const response = await openaiRef.current.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: `당신은 친절한 초등학교 수학 선생님입니다. 
+1. 주어진 문제를 풀어보세요.
+2. 학생의 답과 풀이 과정을 분석해주세요.
+3. 다음과 같은 내용을 포함하여 친절하게 설명해주세요:
+   - 학생이 어떤 부분을 잘 이해했는지
+   - 어떤 부분에서 실수했는지
+   - 어떻게 생각하면 좋을지
+   - 다음에 비슷한 문제를 만났을 때 도움이 될 조언`
+          },
+          {
+            role: "user",
+            content: `문제: ${problem}
+학생의 답: ${userAnswer}
+학생의 풀이 과정: ${userReasoning}
+
+학생의 풀이 과정을 분석하고 도움이 되는 피드백을 제공해주세요.`
+          }
+        ],
+      });
+
+      const result = response.choices[0].message.content || '';
+      console.log('GPT 피드백:', result);
+      console.log('=== 피드백 생성 완료 ===');
+
+      setFeedback(result);
     } catch (error) {
       console.error('Error generating feedback:', error);
       setFeedback('피드백을 생성하는 중 오류가 발생했습니다.');
     }
     setFeedbackLoading(false);
-  };
-
-  const checkAnswer = async () => {
-    if (userAnswer === answer) {
-      setMessage('정답입니다! 🎉');
-      onCorrectAnswer();
-      setTimeout(() => {
-        generateProblem();
-      }, 2000);
-    } else {
-      setMessage('틀렸습니다. 어떻게 풀었는지 설명해주세요!');
-      setShowReasoning(true);
-    }
   };
 
   const handleReasoningSubmit = async () => {
@@ -120,19 +219,6 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
     }
     await provideFeedback();
   };
-
-  // 음성 입력이 완료되면 자동으로 정답을 체크합니다
-  const handleVoiceResult = (result: string) => {
-    setUserAnswer(result);
-    // 음성 입력이 완료되면 바로 정답 체크
-    setTimeout(() => {
-      checkAnswer();
-    }, 500); // 음성 결과가 state에 반영될 시간을 조금 주기 위해 약간의 딜레이를 줍니다
-  };
-
-  useEffect(() => {
-    generateProblem();
-  }, [category]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -161,6 +247,11 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
                   setIsListening={setIsAnswerListening}
                 />
               </div>
+              {isChecking && (
+                <p className="text-sm text-blue-600 mt-2">
+                  답변을 확인하고 있습니다...
+                </p>
+              )}
             </div>
             {showReasoning && (
               <div className="mb-6">
