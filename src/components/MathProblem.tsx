@@ -120,15 +120,21 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
           {
             role: "system",
             content: `당신은 초등학교 수학 선생님입니다. 
-1. 주어진 문제를 풀어보세요.
-2. 학생의 답변이 맞는지 판단해주세요.
-3. 답변 형식:
-   - 정답인 경우: "CORRECT: (칭찬과 함께 풀이 과정 설명)"
-   - 오답인 경우: "INCORRECT: (격려와 함께 올바른 풀이 방법 설명)"`
+학생의 답변이 정확히 정답과 일치하면 반드시 "CORRECT:"로 시작하는 응답을 해주세요.
+일치하지 않으면 반드시 "INCORRECT:"로 시작하는 응답을 해주세요.
+
+예시:
+- 정답이 "41"이고 학생이 "41"이라고 답했다면: "CORRECT: 정확합니다! 27 + 14 = 41 입니다."
+- 정답이 "41"이고 학생이 "42"라고 답했다면: "INCORRECT: 27 + 14 = 41 입니다. 다시 한번 계산해보세요."
+
+답변 형식:
+1. 정답인 경우: "CORRECT: (칭찬과 함께 풀이 과정 설명)"
+2. 오답인 경우: "INCORRECT: (격려와 함께 올바른 풀이 방법 설명)"`
           },
           {
             role: "user",
             content: `문제: ${currentState.problem}
+정답: ${answer}
 학생의 답변: ${currentState.userAnswer}
 
 이 답변이 정답인가요? 
@@ -155,7 +161,7 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
     } finally {
       setIsChecking(false);
     }
-  }, [category, generateProblem, isChecking, onCorrectAnswer, problem]);
+  }, [category, generateProblem, isChecking, onCorrectAnswer, problem, answer]);
 
   const handleVoiceResult = useCallback((result: string) => {
     setUserAnswer(result);
