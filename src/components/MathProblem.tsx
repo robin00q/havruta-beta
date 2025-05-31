@@ -5,6 +5,7 @@ import { OpenAI } from 'openai';
 import { MathCategory } from '@/types/mathTypes';
 import CategorySelector from './CategorySelector';
 import VoiceInput from './VoiceInput';
+import ChatInterface from './ChatInterface';
 
 interface MathProblemProps {
   onCorrectAnswer: () => void;
@@ -24,6 +25,7 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
   const [isAnswerListening, setIsAnswerListening] = useState(false);
   const [isReasoningListening, setIsReasoningListening] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
+  const [showChat, setShowChat] = useState(false);
 
   // OpenAI 인스턴스를 ref로 관리
   const openaiRef = useRef(new OpenAI({
@@ -150,10 +152,10 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
       if (result.startsWith('CORRECT')) {
         setMessage('정답입니다! 🎉');
         onCorrectAnswer();
-        setTimeout(generateProblem, 2000);
+        setShowChat(true);  // 정답일 때 채팅 인터페이스 표시
       } else {
-        setMessage('틀렸습니다. 어떻게 풀었는지 설명해주세요!');
-        setShowReasoning(true);
+        setMessage('틀렸습니다. 선생님과 함께 풀어볼까요?');
+        setShowChat(true);  // 오답일 때도 채팅 인터페이스 표시
       }
     } catch (error) {
       console.error('Error checking answer:', error);
@@ -307,6 +309,17 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
                   </button>
                 </div>
               </div>
+            )}
+            {showChat && (
+              <ChatInterface
+                problem={problem}
+                userAnswer={userAnswer}
+                openaiRef={openaiRef}
+                onClose={() => {
+                  setShowChat(false);
+                  generateProblem();
+                }}
+              />
             )}
             {!showReasoning && !feedback && (
               <div className="flex flex-col gap-4">
