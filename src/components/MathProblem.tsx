@@ -16,6 +16,7 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
   const [userAnswer, setUserAnswer] = useState('');
   const [userReasoning, setUserReasoning] = useState('');
   const [loading, setLoading] = useState(false);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [feedback, setFeedback] = useState('');
   const [showReasoning, setShowReasoning] = useState(false);
@@ -67,7 +68,7 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
   };
 
   const provideFeedback = async () => {
-    setLoading(true);
+    setFeedbackLoading(true);
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
@@ -94,7 +95,7 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
       console.error('Error generating feedback:', error);
       setFeedback('피드백을 생성하는 중 오류가 발생했습니다.');
     }
-    setLoading(false);
+    setFeedbackLoading(false);
   };
 
   const checkAnswer = async () => {
@@ -151,6 +152,14 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="답을 입력하세요"
               />
+              {!showReasoning && (
+                <button
+                  onClick={checkAnswer}
+                  className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors w-full"
+                >
+                  정답 확인
+                </button>
+              )}
             </div>
             {showReasoning && (
               <div className="mb-6">
@@ -164,22 +173,37 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px]"
                   placeholder="풀이 과정을 설명해주세요"
                 />
-                <button
-                  onClick={handleReasoningSubmit}
-                  className="mt-2 bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors w-full"
-                >
-                  설명 제출하기
-                </button>
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={handleReasoningSubmit}
+                    disabled={feedbackLoading}
+                    className={`flex-1 ${
+                      feedbackLoading 
+                        ? 'bg-green-300 cursor-not-allowed' 
+                        : 'bg-green-500 hover:bg-green-600'
+                    } text-white px-4 py-2 rounded-md transition-colors`}
+                  >
+                    {feedbackLoading ? '피드백 생성 중...' : '설명 제출하기'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowReasoning(false);
+                      setMessage('');
+                    }}
+                    disabled={feedbackLoading}
+                    className={`flex-1 ${
+                      feedbackLoading 
+                        ? 'bg-gray-300 cursor-not-allowed' 
+                        : 'bg-gray-500 hover:bg-gray-600'
+                    } text-white px-4 py-2 rounded-md transition-colors`}
+                  >
+                    다시 풀기
+                  </button>
+                </div>
               </div>
             )}
-            {!showReasoning && (
+            {!showReasoning && !feedback && (
               <div className="flex flex-col gap-4">
-                <button
-                  onClick={checkAnswer}
-                  className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors"
-                >
-                  정답 확인
-                </button>
                 <button
                   onClick={generateProblem}
                   className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
