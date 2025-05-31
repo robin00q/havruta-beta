@@ -25,6 +25,11 @@ export default function MathPage() {
     );
   }
 
+  const handleCorrectAnswer = () => {
+    // 정답을 맞췄을 때의 처리
+    console.log('정답을 맞췄습니다!');
+  };
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-between p-8 bg-gradient-to-b from-blue-50 to-white">
       <div className="w-full max-w-4xl">
@@ -35,7 +40,7 @@ export default function MathPage() {
           </p>
         </div>
         
-        <MathProblem />
+        <MathProblem onCorrectAnswer={handleCorrectAnswer} />
       </div>
     </main>
   );

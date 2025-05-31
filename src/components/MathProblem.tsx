@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { OpenAI } from 'openai';
-import confetti from 'confetti-js';
 import { MathCategory } from '@/types/mathTypes';
 import CategorySelector from './CategorySelector';
 import VoiceInput from './VoiceInput';
@@ -105,13 +104,9 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
     if (userAnswer === answer) {
       setMessage('정답입니다! 🎉');
       onCorrectAnswer();
-      const confettiSettings = { target: 'confetti-canvas' };
-      const confettiInstance = new confetti.create('confetti-canvas', confettiSettings);
-      confettiInstance.render();
       setTimeout(() => {
-        confettiInstance.clear();
         generateProblem();
-      }, 3000);
+      }, 2000);
     } else {
       setMessage('틀렸습니다. 어떻게 풀었는지 설명해주세요!');
       setShowReasoning(true);
@@ -134,7 +129,6 @@ export default function MathProblem({ onCorrectAnswer }: MathProblemProps) {
     <div className="max-w-2xl mx-auto">
       <CategorySelector selectedCategory={category} onCategoryChange={setCategory} />
       <div className="bg-white p-8 rounded-lg shadow-lg">
-        <canvas id="confetti-canvas" className="fixed top-0 left-0 w-full h-full pointer-events-none"></canvas>
         {loading ? (
           <div className="text-center">문제를 생성중입니다...</div>
         ) : (
